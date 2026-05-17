@@ -368,20 +368,11 @@
     const defs = [];
     let ex = "";
     (entry.meanings || []).forEach((m) => {
-      (m.definitions || []).slice(0, 2).forEach((d) => {
-        defs.push({ pos: m.partOfSpeech, text: d.definition });
+      (m.definitions || []).forEach((d, i) => {
+        if (i < 2) defs.push({ pos: m.partOfSpeech, text: d.definition });
         if (!ex && d.example) ex = d.example;
       });
     });
-    for (const m of entry.meanings || []) {
-      for (const d of m.definitions || []) {
-        if (d.example) {
-          ex = d.example;
-          break;
-        }
-      }
-      if (ex) break;
-    }
     const enDef = defs.map((d) => `[${d.pos}] ${d.text}`).join("；");
     return { word: entry.word, phonetic, enDef, defs, ex };
   }
