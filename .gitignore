@@ -1,0 +1,11 @@
+# 本地运行工具，不需要上传
+tools/
+.deploy/
+
+# 公网临时文件
+公网地址.txt
+启动公网访问.ps1
+
+# 系统文件
+.DS_Store
+Thumbs.db

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="English Daily AI — 大学英语四级分组学习" />
+  <title>English Daily AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <div class="app">
+    <header class="topbar glass">
+      <button type="button" class="back-btn glass-btn" id="back-btn" aria-label="返回">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>返回</span>
+      </button>
+      <div class="brand" id="brand-home">
+        <span class="brand-icon glass">En</span>
+        <div>
+          <h1 class="brand-title">English Daily AI</h1>
+          <p class="brand-sub">四级词汇 · 每组 50 词</p>
+        </div>
+      </div>
+      <div class="topbar-title hidden" id="view-title"></div>
+    </header>
+
+    <main class="view view--active" id="view-home" data-view="home">
+      <section class="hero glass">
+        <p class="hero-greet">欢迎学习</p>
+        <h2 class="hero-heading">选择功能开始</h2>
+        <p class="hero-meta">共 <strong id="home-total-words">—</strong> 词 · <strong id="home-total-groups">—</strong> 组</p>
+      </section>
+      <div class="feature-grid">
+        <button type="button" class="feature-card glass" data-go="lookup">
+          <span class="feature-icon">🔍</span>
+          <span class="feature-name">查单词</span>
+          <span class="feature-desc">中英释义 · 例句</span>
+        </button>
+        <button type="button" class="feature-card glass" data-go="memorize">
+          <span class="feature-icon">📖</span>
+          <span class="feature-name">记单词</span>
+          <span class="feature-desc">分组浏览 · 完整词条</span>
+        </button>
+        <button type="button" class="feature-card glass" data-go="practice">
+          <span class="feature-icon">✏️</span>
+          <span class="feature-name">练习</span>
+          <span class="feature-desc">按组测验 · 听音选义</span>
+        </button>
+        <button type="button" class="feature-card glass" data-go="favorites">
+          <span class="feature-icon">⭐</span>
+          <span class="feature-name">收藏</span>
+          <span class="feature-desc">按组查看收藏</span>
+        </button>
+        <button type="button" class="feature-card glass" data-go="wrong">
+          <span class="feature-icon">📋</span>
+          <span class="feature-name">错题</span>
+          <span class="feature-desc">按组复习错题</span>
+        </button>
+        <button type="button" class="feature-card glass" data-go="chat">
+          <span class="feature-icon">💬</span>
+          <span class="feature-name">AI 聊天</span>
+          <span class="feature-desc">英语答疑练习</span>
+        </button>
+      </div>
+    </main>
+
+    <main class="view" id="view-lookup" data-view="lookup">
+      <div class="panel glass">
+        <form class="search-bar" id="lookup-form">
+          <input type="text" class="glass-input" id="lookup-input" placeholder="输入英文单词…" autocomplete="off" spellcheck="false" />
+          <button type="submit" class="btn btn-primary glass-btn">查询</button>
+        </form>
+        <p class="hint">免费词典 + 四级词库，含中文与例句。</p>
+        <div id="lookup-result" class="lookup-result glass hidden"></div>
+        <p id="lookup-error" class="msg msg--error hidden" role="alert"></p>
+      </div>
+    </main>
+
+    <main class="view" id="view-memorize" data-view="memorize">
+      <div class="panel glass">
+        <div class="group-bar">
+          <label class="group-label" for="mem-group-select">当前分组</label>
+          <select id="mem-group-select" class="group-select glass-input"></select>
+        </div>
+        <article class="word-card glass" id="mem-card">
+          <div class="word-card-head">
+            <div>
+              <h2 class="word-card-word" id="mem-word">—</h2>
+              <p class="word-card-phonetic" id="mem-phonetic">—</p>
+            </div>
+            <button type="button" class="speak-btn glass-btn" id="mem-speak" title="朗读">🔊</button>
+          </div>
+          <p class="word-card-zh" id="mem-zh">—</p>
+          <div class="word-card-example glass-inset">
+            <p class="ex-label">例句</p>
+            <p class="ex-en" id="mem-ex">—</p>
+            <p class="ex-zh" id="mem-ex-zh">—</p>
+          </div>
+        </article>
+        <div class="card-nav">
+          <button type="button" class="btn glass-btn" id="mem-prev">上一个</button>
+          <span class="card-progress" id="mem-progress">1 / 50</span>
+          <button type="button" class="btn btn-primary glass-btn" id="mem-next">下一个</button>
+        </div>
+        <div class="card-extra">
+          <button type="button" class="btn glass-btn btn-sm" id="mem-fav">☆ 收藏本组单词</button>
+        </div>
+      </div>
+    </main>
+
+    <main class="view" id="view-practice" data-view="practice">
+      <div class="panel glass">
+        <div id="practice-start">
+          <div class="group-bar">
+            <label class="group-label" for="practice-group-select">练习分组</label>
+            <select id="practice-group-select" class="group-select glass-input"></select>
+          </div>
+          <p class="hint" id="practice-pool-count"></p>
+          <button type="button" class="btn btn-primary glass-btn btn-lg" id="practice-begin">开始本组练习</button>
+        </div>
+        <div id="practice-quiz" class="hidden">
+          <div class="quiz-progress glass-inset">
+            <span id="quiz-index">1 / 10</span>
+            <span id="quiz-score">得分 0</span>
+          </div>
+          <div class="quiz-word-block glass">
+            <button type="button" class="speak-btn glass-btn speak-btn--lg" id="quiz-speak">🔊</button>
+            <h2 class="quiz-word" id="quiz-word"></h2>
+            <p class="quiz-phonetic" id="quiz-phonetic"></p>
+          </div>
+          <div class="quiz-options" id="quiz-options"></div>
+          <p id="quiz-feedback" class="msg hidden"></p>
+          <button type="button" class="btn btn-primary glass-btn hidden" id="quiz-next">下一题</button>
+        </div>
+        <div id="practice-done" class="practice-done hidden">
+          <h3>本组练习完成</h3>
+          <p id="practice-summary"></p>
+          <button type="button" class="btn btn-primary glass-btn" id="practice-restart">返回</button>
+        </div>
+      </div>
+    </main>
+
+    <main class="view" id="view-favorites" data-view="favorites">
+      <div class="panel glass">
+        <div class="group-bar">
+          <label class="group-label" for="fav-group-select">查看分组</label>
+          <select id="fav-group-select" class="group-select glass-input"></select>
+        </div>
+        <ul id="fav-list" class="word-list"></ul>
+        <div id="fav-empty" class="empty-state hidden">
+          <p>该组暂无收藏</p>
+          <p class="empty-hint">在记单词或查词时可收藏</p>
+        </div>
+      </div>
+    </main>
+
+    <main class="view" id="view-wrong" data-view="wrong">
+      <div class="panel glass">
+        <div class="group-bar">
+          <label class="group-label" for="wrong-group-select">查看分组</label>
+          <select id="wrong-group-select" class="group-select glass-input"></select>
+          <button type="button" class="btn glass-btn btn-sm" id="wrong-clear">清空本组</button>
+        </div>
+        <ul id="wrong-list" class="word-list"></ul>
+        <div id="wrong-empty" class="empty-state">
+          <p>该组暂无错题</p>
+        </div>
+      </div>
+    </main>
+
+    <main class="view view--chat" id="view-chat" data-view="chat">
+      <div class="chat-panel glass">
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-bubble chat-bubble--ai glass">
+            <p>你好！我是 English Daily AI，一起练习英语吧。</p>
+          </div>
+        </div>
+        <form class="chat-input-row" id="chat-form">
+          <textarea class="glass-input" id="chat-input" rows="2" placeholder="输入消息…" required></textarea>
+          <button type="submit" class="btn btn-primary glass-btn">发送</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="cet4-data.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
