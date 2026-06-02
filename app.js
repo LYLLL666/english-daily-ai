@@ -274,7 +274,8 @@
     const w = normalizeWord(entry.word);
     if (!w || isFavorited(w)) return false;
     const cet = getCet4Word(w);
-    getFavorites().unshift({
+    const favs = getFavorites();
+    favs.unshift({
       id: uid(),
       word: entry.word.trim(),
       zh: entry.zh || cet?.zh || "",
@@ -285,7 +286,7 @@
       source: entry.source || "lookup",
       addedAt: Date.now(),
     });
-    setFavorites(getFavorites());
+    setFavorites(favs);
     return true;
   }
 
@@ -333,7 +334,8 @@
   }
 
   function addWrong(entry) {
-    getWrong().unshift({
+    const wrongs = getWrong();
+    wrongs.unshift({
       id: uid(),
       word: entry.word,
       zh: entry.zh,
@@ -342,7 +344,7 @@
       correctAnswer: entry.correctAnswer,
       addedAt: Date.now(),
     });
-    setWrong(getWrong().slice(0, 300));
+    setWrong(wrongs.slice(0, 300));
   }
 
   function renderWrong() {
