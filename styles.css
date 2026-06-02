@@ -127,12 +127,9 @@ body {
   background: rgba(255, 255, 255, 0.6);
 }
 
-.btn-primary:focus {
+.glass-btn.btn-primary:focus,
+.glass-btn.btn-primary:active {
   background: linear-gradient(135deg, rgba(0, 122, 255, 0.9), rgba(88, 86, 214, 0.85));
-}
-
-.btn-primary:active {
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.85), rgba(88, 86, 214, 0.8));
 }
 
 /* ── App shell ── */
