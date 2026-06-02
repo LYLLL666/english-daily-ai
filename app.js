@@ -885,6 +885,8 @@
       }
       $("#quiz-next").classList.remove("hidden");
     }
+
+    $("#quiz-prev").classList.toggle("hidden", quizIndex === 0);
   }
 
   function onQuizAnswer(btn, item, chosen, options) {
@@ -926,6 +928,13 @@
     quizAdvanceTimer = setTimeout(() => goNextQuiz(), isRight ? 500 : 2000);
   }
 
+  function goPrevQuiz() {
+    if (quizIndex <= 0) return;
+    quizIndex--;
+    saveQuizState();
+    showQuizQuestion();
+  }
+
   function goNextQuiz() {
     quizIndex++;
     if (quizIndex >= quizItems.length) {
@@ -955,6 +964,13 @@
       quizAdvanceTimer = null;
     }
     goNextQuiz();
+  });
+  $("#quiz-prev").addEventListener("click", () => {
+    if (quizAdvanceTimer) {
+      clearTimeout(quizAdvanceTimer);
+      quizAdvanceTimer = null;
+    }
+    goPrevQuiz();
   });
 
   function onEnterPractice() {
@@ -1074,8 +1090,11 @@
   }
 
   const chatHistory = loadChatHistory();
-  $("#chat-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
+  // 进入时滚动到最新消息
+  const msgContainer = $("#chat-messages");
+  if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+
+  function sendChatMessage() {
     const text = $("#chat-input").value.trim();
     if (!text) return;
     $("#chat-input").value = "";
@@ -1083,16 +1102,36 @@
     chatHistory.push({ role: "user", content: text });
     saveChatHistory(chatHistory);
     const loading = appendChatBubble("思考中…", "ai");
-    try {
-      const reply = await callAiApi(text, chatHistory.slice(0, -1));
-      loading.remove();
-      appendChatBubble(reply, "ai");
-      chatHistory.push({ role: "assistant", content: reply });
-      saveChatHistory(chatHistory);
-    } catch (err) {
-      loading.remove();
-      appendChatBubble(err.message || "失败", "error");
+    (async () => {
+      try {
+        const reply = await callAiApi(text, chatHistory.slice(0, -1));
+        loading.remove();
+        appendChatBubble(reply, "ai");
+        chatHistory.push({ role: "assistant", content: reply });
+        saveChatHistory(chatHistory);
+      } catch (err) {
+        loading.remove();
+        appendChatBubble(err.message || "失败", "error");
+      }
+    })();
+  }
+
+  $("#chat-send").addEventListener("click", sendChatMessage);
+  $("#chat-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
     }
+  });
+
+  $("#chat-clear").addEventListener("click", () => {
+    if (!confirm("确定要清空所有聊天记录吗？")) return;
+    chatHistory.length = 0;
+    save(KEYS.chat, []);
+    $("#chat-messages").innerHTML = `
+      <div class="chat-bubble chat-bubble--ai glass">
+        <p>你好！我是 English Daily AI，一起练习英语吧。</p>
+      </div>`;
   });
 
   /* ── Init ── */

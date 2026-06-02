@@ -131,6 +131,10 @@ body {
   background: linear-gradient(135deg, rgba(0, 122, 255, 0.9), rgba(88, 86, 214, 0.85));
 }
 
+.btn-primary:active {
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.85), rgba(88, 86, 214, 0.8));
+}
+
 /* ── App shell ── */
 .app {
   position: relative;
@@ -607,6 +611,12 @@ body {
   cursor: default;
 }
 
+.quiz-nav-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .practice-done {
   text-align: center;
   padding: 1.5rem 0;
@@ -749,6 +759,12 @@ body {
 .chat-input-row textarea {
   flex: 1;
   resize: none;
+}
+
+.chat-clear-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.4rem 0.75rem 0.75rem;
 }
 
 @media (min-width: 540px) {

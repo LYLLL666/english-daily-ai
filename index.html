@@ -136,7 +136,10 @@
           </div>
           <div class="quiz-options" id="quiz-options"></div>
           <p id="quiz-feedback" class="msg hidden"></p>
-          <button type="button" class="btn btn-primary glass-btn hidden" id="quiz-next">下一题</button>
+          <div class="quiz-nav-row">
+            <button type="button" class="btn glass-btn hidden" id="quiz-prev">上一题</button>
+            <button type="button" class="btn btn-primary glass-btn hidden" id="quiz-next">下一题</button>
+          </div>
         </div>
         <div id="practice-done" class="practice-done hidden">
           <h3>本组练习完成</h3>
@@ -204,10 +207,13 @@
             <p>你好！我是 English Daily AI，一起练习英语吧。</p>
           </div>
         </div>
-        <form class="chat-input-row" id="chat-form">
+        <div class="chat-input-row">
           <textarea class="glass-input" id="chat-input" rows="2" placeholder="输入消息…" required></textarea>
-          <button type="submit" class="btn btn-primary glass-btn">发送</button>
-        </form>
+          <button type="submit" class="btn btn-primary glass-btn" id="chat-send">发送</button>
+        </div>
+        <div class="chat-clear-row">
+          <button type="button" class="btn glass-btn btn-sm" id="chat-clear">清空聊天记录</button>
+        </div>
       </div>
     </main>
   </div>
