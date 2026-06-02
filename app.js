@@ -602,7 +602,7 @@
         zh: data.zh,
         ex,
         exZh,
-        group: getWordGroup(data.word),
+        group: -1,
         source: "lookup",
       });
       $("#lookup-fav").textContent = "已收藏";
@@ -1103,7 +1103,24 @@
   });
 
   bindGroupSelect("practice-group-select", updatePracticeHint);
-  bindGroupSelect("fav-group-select", renderFavorites);
+  // fav select 单独设置，顶部加"查词收藏组"
+  (function initFavSelect() {
+    const el = $("#fav-group-select");
+    if (!el) return;
+    el.innerHTML = "";
+    const lookupOpt = document.createElement("option");
+    lookupOpt.value = "-1";
+    lookupOpt.textContent = "查词收藏组";
+    el.appendChild(lookupOpt);
+    for (let g = 0; g < META.totalGroups; g++) {
+      const opt = document.createElement("option");
+      opt.value = String(g);
+      opt.textContent = `${groupLabel(g)}（${wordsInGroup(g).length} 词）`;
+      el.appendChild(opt);
+    }
+    el.value = String(getGroup());
+    el.addEventListener("change", () => renderFavorites());
+  })();
   bindGroupSelect("wrong-group-select", renderWrong);
 
   /* ── AI Chat ── */
