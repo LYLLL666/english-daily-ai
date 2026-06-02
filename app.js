@@ -9,6 +9,7 @@
     phonetic: "eda_phonetic_cache",
     quiz: "eda_quiz_state",
     chat: "eda_chat_history",
+    practiceSplit: "eda_practice_split",
   };
 
   const VIEW_TITLES = {
@@ -700,13 +701,14 @@
   });
 
   /* ── Practice ── */
-  const QUIZ_SIZE = 10;
+  const PRACTICE_SPLIT_SIZE = 25;
   let quizItems = [];
   let quizIndex = 0;
   let quizScore = 0;
   let quizAnswered = false;
   let practiceGroup = 0;
-  let quizAnswers = []; // 每题答过的选项 { selected, correct, options }
+  let currentRound = 0;
+  let quizAnswers = [];
   let quizAdvanceTimer = null;
 
   const END_TIPS = [
@@ -716,6 +718,14 @@
     "这一组已经搞定啦～先别继续刷了嘛，出去动一动或者发会儿呆都很好 真的不用一直学的呀。",
     "完成这一组啦～奖励自己休息一下吧 生活又不只有学习，对吧？慢一点也没关系的～",
   ];
+
+  function getPracticeSplit(g) {
+    return load(KEYS.practiceSplit + "_" + g, null);
+  }
+
+  function savePracticeSplit(g, split) {
+    save(KEYS.practiceSplit + "_" + g, split);
+  }
 
   function loadQuizState() {
     return load(KEYS.quiz, null);
@@ -732,6 +742,7 @@
       index: quizIndex,
       score: quizScore,
       answers: quizAnswers,
+      round: currentRound,
     });
   }
 
@@ -741,18 +752,48 @@
 
   function updatePracticeHint() {
     const g = parseInt($("#practice-group-select")?.value ?? getGroup(), 10);
-    const n = wordsInGroup(g).length;
-    $("#practice-pool-count").textContent = `${groupLabel(g)}共 ${n} 词，每次最多 ${Math.min(QUIZ_SIZE, n)} 题`;
+    const pool = wordsInGroup(g);
+    const perRound = Math.min(PRACTICE_SPLIT_SIZE, Math.ceil(pool.length / 2));
+    const split = getPracticeSplit(g);
+    let roundInfo = "";
+    if (split && split.round0Done && !split.round1Done) {
+      roundInfo = " · 第1轮已完成，可开始第2轮";
+    } else if (split && split.round0Done && split.round1Done) {
+      roundInfo = " · 两轮均已完成，将重新出题";
+    }
+    $("#practice-pool-count").textContent = `${groupLabel(g)}共 ${pool.length} 词，每轮 ${perRound} 题${roundInfo}`;
   }
 
   function startPractice() {
     practiceGroup = parseInt($("#practice-group-select")?.value ?? getGroup(), 10);
     const pool = wordsInGroup(practiceGroup);
+    const perRound = Math.min(PRACTICE_SPLIT_SIZE, Math.ceil(pool.length / 2));
     if (pool.length < 4) {
       alert("该组单词不足 4 个，无法练习。");
       return;
     }
-    quizItems = shuffle(pool).slice(0, Math.min(QUIZ_SIZE, pool.length));
+
+    // 取或建 split：把整组单词随机分成两轮，互不重复
+    let split = getPracticeSplit(practiceGroup);
+    if (!split || !split.set0 || (split.round0Done && split.round1Done)) {
+      const shuffled = shuffle(pool);
+      split = {
+        set0: shuffled.slice(0, perRound),
+        set1: shuffled.slice(perRound, perRound * 2),
+        round0Done: false,
+        round1Done: false,
+      };
+      savePracticeSplit(practiceGroup, split);
+    }
+
+    if (!split.round0Done) {
+      quizItems = split.set0;
+      currentRound = 0;
+    } else {
+      quizItems = split.set1;
+      currentRound = 1;
+    }
+
     quizIndex = 0;
     quizScore = 0;
     quizAnswers = [];
@@ -777,6 +818,7 @@
     quizIndex = Math.min(st.index ?? 0, quizItems.length - 1);
     quizScore = st.score ?? 0;
     quizAnswers = Array.isArray(st.answers) ? st.answers : [];
+    currentRound = st.round ?? 0;
     const select = $("#practice-group-select");
     if (select) select.value = String(practiceGroup);
     $("#practice-start").classList.add("hidden");
@@ -803,7 +845,8 @@
       options = shuffle([item.zh, ...shuffle(pool).slice(0, 3).map((p) => p.zh)]);
     }
 
-    $("#quiz-index").textContent = `${quizIndex + 1} / ${quizItems.length} · ${groupLabel(practiceGroup)}`;
+    const roundLabel = currentRound === 0 ? "第1轮" : "第2轮";
+    $("#quiz-index").textContent = `${quizIndex + 1} / ${quizItems.length} · ${groupLabel(practiceGroup)}${roundLabel}`;
     $("#quiz-score").textContent = `得分 ${quizScore}`;
     $("#quiz-word").textContent = item.word;
     $("#quiz-feedback").classList.add("hidden");
@@ -879,7 +922,6 @@
     quizAnswers[quizIndex] = { selected: chosen, correct: isRight, options };
     saveQuizState();
 
-    // 自动跳题
     if (quizAdvanceTimer) clearTimeout(quizAdvanceTimer);
     quizAdvanceTimer = setTimeout(() => goNextQuiz(), isRight ? 500 : 2000);
   }
@@ -887,10 +929,18 @@
   function goNextQuiz() {
     quizIndex++;
     if (quizIndex >= quizItems.length) {
+      // 标记当前轮已完成
+      const split = getPracticeSplit(practiceGroup);
+      if (split) {
+        if (currentRound === 0) split.round0Done = true;
+        else split.round1Done = true;
+        savePracticeSplit(practiceGroup, split);
+      }
       $("#practice-quiz").classList.add("hidden");
       $("#practice-done").classList.remove("hidden");
       const tip = END_TIPS[Math.floor(Math.random() * END_TIPS.length)];
-      $("#practice-summary").textContent = `${groupLabel(practiceGroup)}：共 ${quizItems.length} 题，答对 ${quizScore} 题。\n\n${tip}`;
+      const roundText = currentRound === 0 ? "第1轮" : "第2轮";
+      $("#practice-summary").textContent = `${groupLabel(practiceGroup)}${roundText}：共 ${quizItems.length} 题，答对 ${quizScore} 题。\n\n${tip}`;
       clearQuizState();
     } else {
       saveQuizState();
@@ -909,10 +959,8 @@
 
   function onEnterPractice() {
     updatePracticeHint();
-    // 若有未完成的练习且仍在测验中（hidden 未设），不强制重置
     const quizVisible = !$("#practice-quiz").classList.contains("hidden");
     if (quizVisible) return;
-    // 尝试恢复保存的进度
     if (!restoreQuiz()) {
       $("#practice-quiz").classList.add("hidden");
       $("#practice-done").classList.add("hidden");
