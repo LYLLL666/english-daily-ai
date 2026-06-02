@@ -676,9 +676,7 @@
     $("#mem-done").classList.remove("hidden");
   }
 
-  let memExampleCache = {};
-
-  async function showMemCard() {
+  function showMemCard() {
     if (!memDeck.length) resetMemDeck();
     if (!memDeck.length) return;
 
@@ -693,10 +691,11 @@
     $("#mem-done").classList.add("hidden");
 
     const item = memDeck[memIndex];
-    const w = normalizeWord(item.word);
 
     $("#mem-word").textContent = item.word;
     $("#mem-zh").textContent = item.zh;
+    $("#mem-ex").textContent = item.ex || "—";
+    $("#mem-ex-zh").textContent = item.exZh || "";
     $("#mem-progress").textContent = `${memIndex + 1} / ${memDeck.length} · ${groupLabel(item.group)}`;
     $("#mem-fav").textContent = isFavorited(item.word) ? "已收藏" : "☆ 收藏";
     $("#mem-prev").classList.toggle("hidden", memIndex === 0);
@@ -704,57 +703,6 @@
 
     displayPhonetic($("#mem-phonetic"), item.word, item);
     speakWord(item.word);
-
-    // 动态获取真实例句
-    if (memExampleCache[w]) {
-      $("#mem-ex").textContent = memExampleCache[w].ex;
-      $("#mem-ex-zh").textContent = memExampleCache[w].exZh || "";
-    } else if (item.ex && item.ex.indexOf("This example shows") === -1) {
-      $("#mem-ex").textContent = item.ex;
-      $("#mem-ex-zh").textContent = item.exZh || "";
-      fetchMemExample(w);
-    } else {
-      $("#mem-ex").textContent = "加载例句…";
-      $("#mem-ex-zh").textContent = "";
-      fetchMemExample(w);
-    }
-  }
-
-  async function fetchMemExample(w) {
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `请为英文单词"${w}"提供一个简单自然的英文例句和中文翻译。严格只返回以下JSON格式（不要markdown，不要其他文字）：\n{"ex":"英文例句","exZh":"中文翻译"}`,
-        }),
-      });
-      if (!res.ok) throw new Error("API error");
-      const data = await res.json();
-      const raw = data.choices?.[0]?.message?.content || "";
-      const json = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-      const m = json.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error("parse error");
-      const parsed = JSON.parse(m[0]);
-      if (parsed.ex) {
-        memExampleCache[w] = { ex: parsed.ex, exZh: parsed.exZh || "" };
-        const item = memDeck[memIndex];
-        if (item && normalizeWord(item.word) === w) {
-          $("#mem-ex").textContent = parsed.ex;
-          $("#mem-ex-zh").textContent = parsed.exZh || "";
-        }
-      } else {
-        throw new Error("no example");
-      }
-    } catch {
-      memExampleCache[w] = { ex: "—", exZh: "" };
-      const item = memDeck[memIndex];
-      if (item && normalizeWord(item.word) === w) {
-        const dataEx = item.ex && item.ex.indexOf("This example shows") === -1 ? item.ex : "—";
-        $("#mem-ex").textContent = dataEx;
-        $("#mem-ex-zh").textContent = dataEx !== "—" ? (item.exZh || "") : "";
-      }
-    }
   }
 
   bindGroupSelect("mem-group-select", () => {
