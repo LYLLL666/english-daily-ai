@@ -85,6 +85,7 @@
         <div class="group-bar">
           <label class="group-label" for="mem-group-select">当前分组</label>
           <select id="mem-group-select" class="group-select glass-input"></select>
+          <button type="button" class="btn glass-btn btn-sm" id="mem-refresh">刷新</button>
         </div>
         <article class="word-card glass" id="mem-card">
           <div class="word-card-head">
@@ -108,6 +109,11 @@
         </div>
         <div class="card-extra">
           <button type="button" class="btn glass-btn btn-sm" id="mem-fav">☆ 收藏本组单词</button>
+        </div>
+        <div id="mem-done" class="practice-done hidden">
+          <h3>本组结束</h3>
+          <p>已浏览完本组全部单词</p>
+          <button type="button" class="btn btn-primary glass-btn" id="mem-restart">重新开始</button>
         </div>
       </div>
     </main>

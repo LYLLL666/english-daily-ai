@@ -665,15 +665,31 @@
   let memDeck = [];
 
   function resetMemDeck() {
-    memDeck = wordsInGroup(getGroup());
+    memDeck = shuffle(wordsInGroup(getGroup()));
     memIndex = 0;
+  }
+
+  function showMemDone() {
+    $("#mem-card").classList.add("hidden");
+    $(".card-nav").classList.add("hidden");
+    $(".card-extra").classList.add("hidden");
+    $("#mem-done").classList.remove("hidden");
   }
 
   function showMemCard() {
     if (!memDeck.length) resetMemDeck();
     if (!memDeck.length) return;
 
-    if (memIndex >= memDeck.length) memIndex = 0;
+    if (memIndex >= memDeck.length) {
+      showMemDone();
+      return;
+    }
+
+    $("#mem-card").classList.remove("hidden");
+    $(".card-nav").classList.remove("hidden");
+    $(".card-extra").classList.remove("hidden");
+    $("#mem-done").classList.add("hidden");
+
     const item = memDeck[memIndex];
 
     $("#mem-word").textContent = item.word;
@@ -682,6 +698,9 @@
     $("#mem-ex-zh").textContent = item.exZh || "—";
     $("#mem-progress").textContent = `${memIndex + 1} / ${memDeck.length} · ${groupLabel(item.group)}`;
     $("#mem-fav").textContent = isFavorited(item.word) ? "已收藏" : "☆ 收藏";
+
+    $("#mem-prev").classList.toggle("hidden", memIndex === 0);
+    $("#mem-next").textContent = memIndex >= memDeck.length - 1 ? "完成" : "下一个";
 
     displayPhonetic($("#mem-phonetic"), item.word, item);
     speakWord(item.word);
@@ -694,11 +713,16 @@
 
   $("#mem-speak").addEventListener("click", () => speakWord(memDeck[memIndex]?.word));
   $("#mem-prev").addEventListener("click", () => {
-    memIndex = (memIndex - 1 + memDeck.length) % memDeck.length;
+    if (memIndex <= 0) return;
+    memIndex--;
     showMemCard();
   });
   $("#mem-next").addEventListener("click", () => {
-    memIndex = (memIndex + 1) % memDeck.length;
+    if (memIndex >= memDeck.length - 1) {
+      showMemDone();
+      return;
+    }
+    memIndex++;
     showMemCard();
   });
   $("#mem-fav").addEventListener("click", () => {
@@ -706,6 +730,14 @@
     if (!item || isFavorited(item.word)) return;
     addFavorite({ ...item, source: "memorize" });
     $("#mem-fav").textContent = "已收藏";
+  });
+  $("#mem-refresh").addEventListener("click", () => {
+    resetMemDeck();
+    showMemCard();
+  });
+  $("#mem-restart").addEventListener("click", () => {
+    resetMemDeck();
+    showMemCard();
   });
 
   /* ── Practice ── */
