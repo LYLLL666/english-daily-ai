@@ -722,25 +722,26 @@
 
   async function fetchMemExample(w) {
     try {
-      const res = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`
-      );
-      if (!res.ok) throw new Error("not found");
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `请为英文单词"${w}"提供一个简单自然的英文例句和中文翻译。严格只返回以下JSON格式（不要markdown，不要其他文字）：\n{"ex":"英文例句","exZh":"中文翻译"}`,
+        }),
+      });
+      if (!res.ok) throw new Error("API error");
       const data = await res.json();
-      let ex = "";
-      const meanings = data[0]?.meanings || [];
-      for (const m of meanings) {
-        for (const d of m.definitions || []) {
-          if (d.example) { ex = d.example; break; }
-        }
-        if (ex) break;
-      }
-      if (ex) {
-        memExampleCache[w] = { ex, exZh: "" };
+      const raw = data.choices?.[0]?.message?.content || "";
+      const json = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const m = json.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("parse error");
+      const parsed = JSON.parse(m[0]);
+      if (parsed.ex) {
+        memExampleCache[w] = { ex: parsed.ex, exZh: parsed.exZh || "" };
         const item = memDeck[memIndex];
         if (item && normalizeWord(item.word) === w) {
-          $("#mem-ex").textContent = ex;
-          $("#mem-ex-zh").textContent = "";
+          $("#mem-ex").textContent = parsed.ex;
+          $("#mem-ex-zh").textContent = parsed.exZh || "";
         }
       } else {
         throw new Error("no example");
@@ -749,7 +750,6 @@
       memExampleCache[w] = { ex: "—", exZh: "" };
       const item = memDeck[memIndex];
       if (item && normalizeWord(item.word) === w) {
-        // 回退到数据中的 ex（如果不是占位文本）
         const dataEx = item.ex && item.ex.indexOf("This example shows") === -1 ? item.ex : "—";
         $("#mem-ex").textContent = dataEx;
         $("#mem-ex-zh").textContent = dataEx !== "—" ? (item.exZh || "") : "";
