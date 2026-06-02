@@ -676,7 +676,9 @@
     $("#mem-done").classList.remove("hidden");
   }
 
-  function showMemCard() {
+  let memExampleCache = {};
+
+  async function showMemCard() {
     if (!memDeck.length) resetMemDeck();
     if (!memDeck.length) return;
 
@@ -691,19 +693,68 @@
     $("#mem-done").classList.add("hidden");
 
     const item = memDeck[memIndex];
+    const w = normalizeWord(item.word);
 
     $("#mem-word").textContent = item.word;
     $("#mem-zh").textContent = item.zh;
-    $("#mem-ex").textContent = item.ex || "—";
-    $("#mem-ex-zh").textContent = item.exZh || "—";
     $("#mem-progress").textContent = `${memIndex + 1} / ${memDeck.length} · ${groupLabel(item.group)}`;
     $("#mem-fav").textContent = isFavorited(item.word) ? "已收藏" : "☆ 收藏";
-
     $("#mem-prev").classList.toggle("hidden", memIndex === 0);
     $("#mem-next").textContent = memIndex >= memDeck.length - 1 ? "完成" : "下一个";
 
     displayPhonetic($("#mem-phonetic"), item.word, item);
     speakWord(item.word);
+
+    // 动态获取真实例句
+    if (memExampleCache[w]) {
+      $("#mem-ex").textContent = memExampleCache[w].ex;
+      $("#mem-ex-zh").textContent = memExampleCache[w].exZh || "";
+    } else if (item.ex && item.ex.indexOf("This example shows") === -1) {
+      $("#mem-ex").textContent = item.ex;
+      $("#mem-ex-zh").textContent = item.exZh || "";
+      fetchMemExample(w);
+    } else {
+      $("#mem-ex").textContent = "加载例句…";
+      $("#mem-ex-zh").textContent = "";
+      fetchMemExample(w);
+    }
+  }
+
+  async function fetchMemExample(w) {
+    try {
+      const res = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`
+      );
+      if (!res.ok) throw new Error("not found");
+      const data = await res.json();
+      let ex = "";
+      const meanings = data[0]?.meanings || [];
+      for (const m of meanings) {
+        for (const d of m.definitions || []) {
+          if (d.example) { ex = d.example; break; }
+        }
+        if (ex) break;
+      }
+      if (ex) {
+        memExampleCache[w] = { ex, exZh: "" };
+        const item = memDeck[memIndex];
+        if (item && normalizeWord(item.word) === w) {
+          $("#mem-ex").textContent = ex;
+          $("#mem-ex-zh").textContent = "";
+        }
+      } else {
+        throw new Error("no example");
+      }
+    } catch {
+      memExampleCache[w] = { ex: "—", exZh: "" };
+      const item = memDeck[memIndex];
+      if (item && normalizeWord(item.word) === w) {
+        // 回退到数据中的 ex（如果不是占位文本）
+        const dataEx = item.ex && item.ex.indexOf("This example shows") === -1 ? item.ex : "—";
+        $("#mem-ex").textContent = dataEx;
+        $("#mem-ex-zh").textContent = dataEx !== "—" ? (item.exZh || "") : "";
+      }
+    }
   }
 
   bindGroupSelect("mem-group-select", () => {
