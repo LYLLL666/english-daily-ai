@@ -252,10 +252,12 @@
     if (name === "memorize") showMemCard();
     if (name === "practice") onEnterPractice();
     if (name === "chat") {
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         const mc = $("#chat-messages");
-        if (mc) mc.scrollTop = mc.scrollHeight;
-      });
+        if (mc && mc.lastElementChild) {
+          mc.lastElementChild.scrollIntoView({ block: "end", behavior: "auto" });
+        }
+      }, 100);
     }
   }
 
