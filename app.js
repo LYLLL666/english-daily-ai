@@ -1199,9 +1199,23 @@
 
   const chatHistory = loadChatHistory();
 
+  const chatTimestamps = [];
+
   function sendChatMessage() {
     const text = $("#chat-input").value.trim();
     if (!text) return;
+
+    // 1分钟最多10条
+    const now = Date.now();
+    while (chatTimestamps.length && chatTimestamps[0] < now - 60000) {
+      chatTimestamps.shift();
+    }
+    if (chatTimestamps.length >= 10) {
+      appendChatBubble("发送太频繁了，请稍等片刻再试。（每分钟最多 10 条消息）", "error");
+      return;
+    }
+    chatTimestamps.push(now);
+
     $("#chat-input").value = "";
     appendChatBubble(text, "user");
     chatHistory.push({ role: "user", content: text });
