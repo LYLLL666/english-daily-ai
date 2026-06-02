@@ -138,7 +138,7 @@
         </div>
         <div id="practice-done" class="practice-done hidden">
           <h3>本组练习完成</h3>
-          <p id="practice-summary"></p>
+          <p id="practice-summary" style="white-space:pre-line;line-height:1.6;"></p>
           <button type="button" class="btn btn-primary glass-btn" id="practice-restart">返回</button>
         </div>
       </div>
@@ -160,14 +160,37 @@
 
     <main class="view" id="view-wrong" data-view="wrong">
       <div class="panel glass">
-        <div class="group-bar">
-          <label class="group-label" for="wrong-group-select">查看分组</label>
-          <select id="wrong-group-select" class="group-select glass-input"></select>
-          <button type="button" class="btn glass-btn btn-sm" id="wrong-clear">清空本组</button>
+        <div id="wrong-list-view">
+          <div class="group-bar">
+            <label class="group-label" for="wrong-group-select">查看分组</label>
+            <select id="wrong-group-select" class="group-select glass-input"></select>
+            <button type="button" class="btn glass-btn btn-sm" id="wrong-clear">清空本组</button>
+          </div>
+          <div class="card-extra">
+            <button type="button" class="btn btn-primary glass-btn btn-sm" id="wrong-start-review">开始复习本组</button>
+          </div>
+          <ul id="wrong-list" class="word-list"></ul>
+          <div id="wrong-empty" class="empty-state">
+            <p>该组暂无错题</p>
+          </div>
         </div>
-        <ul id="wrong-list" class="word-list"></ul>
-        <div id="wrong-empty" class="empty-state">
-          <p>该组暂无错题</p>
+        <div id="wrong-review-view" class="hidden">
+          <div class="quiz-progress glass-inset">
+            <span id="wrong-review-index">1 / 1</span>
+            <button type="button" class="btn glass-btn btn-sm" id="wrong-review-exit">退出复习</button>
+          </div>
+          <div class="quiz-word-block glass">
+            <button type="button" class="speak-btn glass-btn speak-btn--lg" id="wrong-review-speak">🔊</button>
+            <h2 class="quiz-word" id="wrong-review-word"></h2>
+            <p class="quiz-phonetic" id="wrong-review-phonetic"></p>
+          </div>
+          <div class="quiz-options" id="wrong-review-options"></div>
+          <p id="wrong-review-feedback" class="msg hidden"></p>
+          <div id="wrong-review-done" class="practice-done hidden">
+            <h3>错题复习完成</h3>
+            <p id="wrong-review-summary" style="white-space:pre-line;line-height:1.6;"></p>
+            <button type="button" class="btn btn-primary glass-btn" id="wrong-review-back">返回错题本</button>
+          </div>
         </div>
       </div>
     </main>

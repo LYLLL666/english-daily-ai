@@ -7,6 +7,8 @@
     wrong: "eda_wrong",
     group: "eda_group",
     phonetic: "eda_phonetic_cache",
+    quiz: "eda_quiz_state",
+    chat: "eda_chat_history",
   };
 
   const VIEW_TITLES = {
@@ -132,14 +134,39 @@
     });
   }
 
-  /* ── 发音 ── */
-  function speakWord(word) {
-    if (!word || !window.speechSynthesis) return;
+  /* ── 发音（Oxford 真人音频 + TTS 兜底）── */
+  let currentAudio = null;
+
+  function ttsFallback(word) {
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(word);
     u.lang = "en-US";
-    u.rate = 0.88;
+    u.rate = 0.95;
     window.speechSynthesis.speak(u);
+  }
+
+  function speakWord(word) {
+    if (!word) return;
+    const clean = String(word).toLowerCase().trim();
+    if (!clean) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (currentAudio) {
+      try { currentAudio.pause(); } catch {}
+      currentAudio = null;
+    }
+    const audio = new Audio(
+      `https://ssl.gstatic.com/dictionary/static/sounds/oxford/${encodeURIComponent(clean)}--_us_1.mp3`
+    );
+    currentAudio = audio;
+    let fellBack = false;
+    const fall = () => {
+      if (fellBack) return;
+      fellBack = true;
+      ttsFallback(clean);
+    };
+    audio.onerror = fall;
+    audio.play().catch(fall);
   }
 
   /* ── 音标缓存（免费词典 API）── */
@@ -220,9 +247,9 @@
     document.title = isHome ? "English Daily AI" : `${VIEW_TITLES[name]} · English Daily AI`;
 
     if (name === "favorites") renderFavorites();
-    if (name === "wrong") renderWrong();
+    if (name === "wrong") showWrongList();
     if (name === "memorize") showMemCard();
-    if (name === "practice") updatePracticeHint();
+    if (name === "practice") onEnterPractice();
   }
 
   $$("[data-go]").forEach((btn) => {
@@ -357,6 +384,124 @@
     renderWrong();
   });
 
+  /* ── 错题专属复习模式 ── */
+  let wrongReviewList = [];
+  let wrongReviewIndex = 0;
+  let wrongReviewRight = 0;
+  let wrongReviewAdvanceTimer = null;
+  let wrongReviewAnswered = false;
+
+  function showWrongList() {
+    if (wrongReviewAdvanceTimer) {
+      clearTimeout(wrongReviewAdvanceTimer);
+      wrongReviewAdvanceTimer = null;
+    }
+    $("#wrong-list-view").classList.remove("hidden");
+    $("#wrong-review-view").classList.add("hidden");
+    $("#wrong-review-done").classList.add("hidden");
+    renderWrong();
+  }
+
+  function startWrongReview() {
+    const g = parseInt($("#wrong-group-select")?.value ?? getGroup(), 10);
+    const list = getWrong().filter((w) => w.group === g);
+    if (!list.length) {
+      alert("该组暂无错题可复习。");
+      return;
+    }
+    wrongReviewList = shuffle(list);
+    wrongReviewIndex = 0;
+    wrongReviewRight = 0;
+    $("#wrong-list-view").classList.add("hidden");
+    $("#wrong-review-view").classList.remove("hidden");
+    $("#wrong-review-done").classList.add("hidden");
+    showWrongReviewQuestion();
+  }
+
+  function showWrongReviewQuestion() {
+    if (wrongReviewAdvanceTimer) {
+      clearTimeout(wrongReviewAdvanceTimer);
+      wrongReviewAdvanceTimer = null;
+    }
+    wrongReviewAnswered = false;
+    if (wrongReviewIndex >= wrongReviewList.length) {
+      finishWrongReview();
+      return;
+    }
+    const w = wrongReviewList[wrongReviewIndex];
+    const cet = getCet4Word(w.word) || w;
+    const correctZh = w.correctAnswer || w.zh || cet.zh || "";
+    const distractorPool = CET4_LIST.filter(
+      (p) => p.word !== w.word && p.zh && p.zh !== correctZh
+    );
+    const distractors = shuffle(distractorPool).slice(0, 3).map((p) => p.zh);
+    const options = shuffle([correctZh, ...distractors]);
+
+    $("#wrong-review-index").textContent = `${wrongReviewIndex + 1} / ${wrongReviewList.length}`;
+    $("#wrong-review-word").textContent = w.word;
+    $("#wrong-review-feedback").classList.add("hidden");
+
+    displayPhonetic($("#wrong-review-phonetic"), w.word, cet);
+    speakWord(w.word);
+
+    const optsEl = $("#wrong-review-options");
+    optsEl.innerHTML = "";
+    options.forEach((zh) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "quiz-option";
+      btn.textContent = zh;
+      btn.addEventListener("click", () => onWrongReviewAnswer(btn, w, zh, correctZh));
+      optsEl.appendChild(btn);
+    });
+  }
+
+  function onWrongReviewAnswer(btn, w, chosen, correctZh) {
+    if (wrongReviewAnswered) return;
+    wrongReviewAnswered = true;
+    const isRight = chosen === correctZh;
+
+    $$(".quiz-option", $("#wrong-review-options")).forEach((b) => {
+      b.disabled = true;
+      if (b.textContent === correctZh) b.classList.add("is-correct");
+      if (b === btn && !isRight) b.classList.add("is-wrong");
+    });
+
+    const fb = $("#wrong-review-feedback");
+    fb.classList.remove("hidden");
+    if (isRight) {
+      wrongReviewRight++;
+      fb.textContent = "回答正确！已从错题本移除。";
+      fb.className = "msg msg--success";
+      // 从错题本移除
+      setWrong(getWrong().filter((x) => x.id !== w.id));
+    } else {
+      fb.textContent = `答错了，正确：${correctZh}`;
+      fb.className = "msg msg--error";
+    }
+
+    wrongReviewAdvanceTimer = setTimeout(() => {
+      wrongReviewIndex++;
+      showWrongReviewQuestion();
+    }, isRight ? 600 : 1800);
+  }
+
+  function finishWrongReview() {
+    $("#wrong-review-options").innerHTML = "";
+    $("#wrong-review-feedback").classList.add("hidden");
+    $("#wrong-review-done").classList.remove("hidden");
+    const total = wrongReviewList.length;
+    const tip = END_TIPS[Math.floor(Math.random() * END_TIPS.length)];
+    $("#wrong-review-summary").textContent = `共 ${total} 题，答对 ${wrongReviewRight} 题。\n\n${tip}`;
+  }
+
+  $("#wrong-start-review").addEventListener("click", startWrongReview);
+  $("#wrong-review-exit").addEventListener("click", showWrongList);
+  $("#wrong-review-back").addEventListener("click", showWrongList);
+  $("#wrong-review-speak").addEventListener("click", () =>
+    speakWord(wrongReviewList[wrongReviewIndex]?.word)
+  );
+
   /* ── Lookup ── */
   async function fetchDefinition(word) {
     const res = await fetch(
@@ -377,13 +522,40 @@
     return { word: entry.word, phonetic, enDef, defs, ex };
   }
 
+  async function fetchAiLookup(word) {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message:
+          `请查询英文单词"${word}"，严格只返回以下 JSON 格式（不要 markdown 代码块，不要任何其他文字）：\n` +
+          `{\n  "word": "${word}",\n  "phonetic": "IPA 音标，如 /ˈeksəmpəl/",\n  "meaning_cn": "中文释义（含词性，如 n. 例子）",\n  "meaning_en": "英文释义",\n  "example": "英文例句",\n  "example_cn": "例句中文翻译"\n}`,
+      }),
+    });
+    if (!res.ok) throw new Error(`AI 查询失败 (${res.status})`);
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content || "";
+    const json = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const m = json.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("AI 返回格式不正确");
+    const parsed = JSON.parse(m[0]);
+    return {
+      word: parsed.word || word,
+      phonetic: parsed.phonetic || "",
+      zh: parsed.meaning_cn || "",
+      enDef: parsed.meaning_en || "",
+      ex: parsed.example || "",
+      exZh: parsed.example_cn || "",
+    };
+  }
+
   function renderLookupResult(data) {
     const box = $("#lookup-result");
     box.classList.remove("hidden");
     $("#lookup-error").classList.add("hidden");
     const cet = getCet4Word(data.word);
     const ex = data.ex || cet?.ex || "";
-    const exZh = cet?.exZh || (data.zh ? `释义：${data.zh}` : "");
+    const exZh = data.exZh || cet?.exZh || "";
     const favLabel = isFavorited(data.word) ? "已收藏" : "☆ 收藏";
 
     box.innerHTML = `
@@ -434,6 +606,7 @@
     if (!word) {
       errEl.textContent = "请输入单词。";
       errEl.classList.remove("hidden");
+      errEl.classList.add("msg--error");
       return;
     }
     errEl.textContent = "查询中…";
@@ -441,17 +614,32 @@
     errEl.classList.remove("msg--error");
     try {
       const cet = getCet4Word(word);
-      const [dict, zh] = await Promise.all([
-        fetchDefinition(word).catch(() => null),
-        cet ? Promise.resolve(cet.zh) : fetchChinese(word),
-      ]);
-      const data = {
-        word: dict?.word || word,
-        phonetic: dict?.phonetic || cet?.phonetic || "",
-        zh: zh || "",
-        enDef: dict?.enDef || "",
-        ex: dict?.ex || cet?.ex || "",
-      };
+      // 优先 AI；失败时回退到免费 API + 翻译 API
+      let data = null;
+      try {
+        const ai = await fetchAiLookup(word);
+        data = {
+          word: ai.word || word,
+          phonetic: ai.phonetic || cet?.phonetic || "",
+          zh: ai.zh || cet?.zh || "",
+          enDef: ai.enDef || "",
+          ex: ai.ex || cet?.ex || "",
+          exZh: ai.exZh || cet?.exZh || "",
+        };
+      } catch (aiErr) {
+        const [dict, zh] = await Promise.all([
+          fetchDefinition(word).catch(() => null),
+          cet ? Promise.resolve(cet.zh) : fetchChinese(word),
+        ]);
+        data = {
+          word: dict?.word || word,
+          phonetic: dict?.phonetic || cet?.phonetic || "",
+          zh: zh || "",
+          enDef: dict?.enDef || "",
+          ex: dict?.ex || cet?.ex || "",
+          exZh: cet?.exZh || "",
+        };
+      }
       errEl.classList.add("hidden");
       renderLookupResult(data);
       speakWord(data.word);
@@ -516,6 +704,38 @@
   let quizScore = 0;
   let quizAnswered = false;
   let practiceGroup = 0;
+  let quizAnswers = []; // 每题答过的选项 { selected, correct, options }
+  let quizAdvanceTimer = null;
+
+  const END_TIPS = [
+    "好啦，这一组做完了哦～先别急着继续，起来走一走也好呀 学习之外的世界也很有意思的！",
+    "这一组结束啦，辛苦你啦～要不要先休息一下？看看窗外、喝口水也可以呀 不用一直待在这里的。",
+    "做完这一部分啦～可以先放松一下哦 学习很重要，但生活里还有好多可爱的事情等你去发现呢。",
+    "这一组已经搞定啦～先别继续刷了嘛，出去动一动或者发会儿呆都很好 真的不用一直学的呀。",
+    "完成这一组啦～奖励自己休息一下吧 生活又不只有学习，对吧？慢一点也没关系的～",
+  ];
+
+  function loadQuizState() {
+    return load(KEYS.quiz, null);
+  }
+
+  function saveQuizState() {
+    if (!quizItems.length) {
+      localStorage.removeItem(KEYS.quiz);
+      return;
+    }
+    save(KEYS.quiz, {
+      group: practiceGroup,
+      items: quizItems.map((it) => it.word),
+      index: quizIndex,
+      score: quizScore,
+      answers: quizAnswers,
+    });
+  }
+
+  function clearQuizState() {
+    localStorage.removeItem(KEYS.quiz);
+  }
 
   function updatePracticeHint() {
     const g = parseInt($("#practice-group-select")?.value ?? getGroup(), 10);
@@ -533,17 +753,53 @@
     quizItems = shuffle(pool).slice(0, Math.min(QUIZ_SIZE, pool.length));
     quizIndex = 0;
     quizScore = 0;
+    quizAnswers = [];
+    saveQuizState();
     $("#practice-start").classList.add("hidden");
     $("#practice-done").classList.add("hidden");
     $("#practice-quiz").classList.remove("hidden");
     showQuizQuestion();
   }
 
+  function restoreQuiz() {
+    const st = loadQuizState();
+    if (!st || !Array.isArray(st.items) || !st.items.length) return false;
+    const pool = wordsInGroup(st.group);
+    const items = st.items.map((w) => pool.find((p) => p.word === w)).filter(Boolean);
+    if (items.length !== st.items.length) {
+      clearQuizState();
+      return false;
+    }
+    practiceGroup = st.group;
+    quizItems = items;
+    quizIndex = Math.min(st.index ?? 0, quizItems.length - 1);
+    quizScore = st.score ?? 0;
+    quizAnswers = Array.isArray(st.answers) ? st.answers : [];
+    const select = $("#practice-group-select");
+    if (select) select.value = String(practiceGroup);
+    $("#practice-start").classList.add("hidden");
+    $("#practice-done").classList.add("hidden");
+    $("#practice-quiz").classList.remove("hidden");
+    showQuizQuestion();
+    return true;
+  }
+
   async function showQuizQuestion() {
+    if (quizAdvanceTimer) {
+      clearTimeout(quizAdvanceTimer);
+      quizAdvanceTimer = null;
+    }
     quizAnswered = false;
     const item = quizItems[quizIndex];
-    const pool = wordsInGroup(practiceGroup).filter((p) => p.word !== item.word);
-    const options = shuffle([item.zh, ...shuffle(pool).slice(0, 3).map((p) => p.zh)]);
+    const prev = quizAnswers[quizIndex];
+
+    let options;
+    if (prev && Array.isArray(prev.options)) {
+      options = prev.options;
+    } else {
+      const pool = wordsInGroup(practiceGroup).filter((p) => p.word !== item.word);
+      options = shuffle([item.zh, ...shuffle(pool).slice(0, 3).map((p) => p.zh)]);
+    }
 
     $("#quiz-index").textContent = `${quizIndex + 1} / ${quizItems.length} · ${groupLabel(practiceGroup)}`;
     $("#quiz-score").textContent = `得分 ${quizScore}`;
@@ -552,7 +808,7 @@
     $("#quiz-next").classList.add("hidden");
 
     displayPhonetic($("#quiz-phonetic"), item.word, item);
-    speakWord(item.word);
+    if (!prev) speakWord(item.word);
 
     const optsEl = $("#quiz-options");
     optsEl.innerHTML = "";
@@ -561,12 +817,32 @@
       btn.type = "button";
       btn.className = "quiz-option";
       btn.textContent = zh;
-      btn.addEventListener("click", () => onQuizAnswer(btn, item, zh));
+      btn.addEventListener("click", () => onQuizAnswer(btn, item, zh, options));
       optsEl.appendChild(btn);
     });
+
+    if (prev) {
+      quizAnswered = true;
+      const correctZh = item.zh;
+      $$(".quiz-option", optsEl).forEach((b) => {
+        b.disabled = true;
+        if (b.textContent === correctZh) b.classList.add("is-correct");
+        if (b.textContent === prev.selected && !prev.correct) b.classList.add("is-wrong");
+      });
+      const fb = $("#quiz-feedback");
+      fb.classList.remove("hidden");
+      if (prev.correct) {
+        fb.textContent = "回答正确！";
+        fb.className = "msg msg--success";
+      } else {
+        fb.textContent = `答错了，正确：${correctZh}`;
+        fb.className = "msg msg--error";
+      }
+      $("#quiz-next").classList.remove("hidden");
+    }
   }
 
-  function onQuizAnswer(btn, item, chosen) {
+  function onQuizAnswer(btn, item, chosen, options) {
     if (quizAnswered) return;
     quizAnswered = true;
     const correctZh = item.zh;
@@ -597,19 +873,50 @@
     }
     $("#quiz-score").textContent = `得分 ${quizScore}`;
     $("#quiz-next").classList.remove("hidden");
+
+    quizAnswers[quizIndex] = { selected: chosen, correct: isRight, options };
+    saveQuizState();
+
+    // 自动跳题
+    if (quizAdvanceTimer) clearTimeout(quizAdvanceTimer);
+    quizAdvanceTimer = setTimeout(() => goNextQuiz(), isRight ? 500 : 2000);
   }
 
-  $("#quiz-speak").addEventListener("click", () => speakWord(quizItems[quizIndex]?.word));
-  $("#quiz-next").addEventListener("click", () => {
+  function goNextQuiz() {
     quizIndex++;
     if (quizIndex >= quizItems.length) {
       $("#practice-quiz").classList.add("hidden");
       $("#practice-done").classList.remove("hidden");
-      $("#practice-summary").textContent = `${groupLabel(practiceGroup)}：共 ${quizItems.length} 题，答对 ${quizScore} 题。`;
+      const tip = END_TIPS[Math.floor(Math.random() * END_TIPS.length)];
+      $("#practice-summary").textContent = `${groupLabel(practiceGroup)}：共 ${quizItems.length} 题，答对 ${quizScore} 题。\n\n${tip}`;
+      clearQuizState();
     } else {
+      saveQuizState();
       showQuizQuestion();
     }
+  }
+
+  $("#quiz-speak").addEventListener("click", () => speakWord(quizItems[quizIndex]?.word));
+  $("#quiz-next").addEventListener("click", () => {
+    if (quizAdvanceTimer) {
+      clearTimeout(quizAdvanceTimer);
+      quizAdvanceTimer = null;
+    }
+    goNextQuiz();
   });
+
+  function onEnterPractice() {
+    updatePracticeHint();
+    // 若有未完成的练习且仍在测验中（hidden 未设），不强制重置
+    const quizVisible = !$("#practice-quiz").classList.contains("hidden");
+    if (quizVisible) return;
+    // 尝试恢复保存的进度
+    if (!restoreQuiz()) {
+      $("#practice-quiz").classList.add("hidden");
+      $("#practice-done").classList.add("hidden");
+      $("#practice-start").classList.remove("hidden");
+    }
+  }
 
   $("#practice-begin").addEventListener("click", startPractice);
   $("#practice-restart").addEventListener("click", () => {
@@ -623,25 +930,55 @@
   bindGroupSelect("wrong-group-select", renderWrong);
 
   /* ── AI Chat ── */
-  function getApiConfig() {
-    return window.AI_CONFIG || { endpoint: "", apiKey: "", model: "gpt-4o-mini" };
-  }
-
-  function appendChatBubble(text, role) {
+  function appendChatBubble(text, role, opts = {}) {
     const div = document.createElement("div");
     div.className = `chat-bubble chat-bubble--${role} glass`;
     const p = document.createElement("p");
     p.textContent = text;
     div.appendChild(p);
     $("#chat-messages").appendChild(div);
-    div.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!opts.noScroll) div.scrollIntoView({ behavior: "smooth", block: "end" });
     return div;
   }
 
+  function loadChatHistory() {
+    const hist = load(KEYS.chat, []);
+    if (!Array.isArray(hist) || !hist.length) return [];
+    hist.forEach((m) => {
+      appendChatBubble(m.content, m.role === "user" ? "user" : "ai", { noScroll: true });
+    });
+    return hist;
+  }
+
+  function saveChatHistory(history) {
+    save(KEYS.chat, history.slice(-50));
+  }
+
   async function callAiApi(userMessage, history) {
-    const cfg = getApiConfig();
+    // 优先后端 /api/chat
+    try {
+      const messages = [
+        { role: "system", content: "You are English Daily AI, a friendly CET-4 English tutor." },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMessage },
+      ];
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage, messages }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content;
+        if (reply) return reply;
+      }
+    } catch {
+      /* 回退到 config.js */
+    }
+
+    const cfg = window.AI_CONFIG || { endpoint: "", apiKey: "", model: "gpt-4o-mini" };
     if (!cfg.endpoint || !cfg.apiKey) {
-      throw new Error("AI 未配置：请在 config.js 填写 endpoint 与 apiKey。");
+      throw new Error("AI 未配置：后端 /api/chat 不可用，且 config.js 未填写 endpoint/apiKey。");
     }
     const res = await fetch(cfg.endpoint, {
       method: "POST",
@@ -652,10 +989,7 @@
       body: JSON.stringify({
         model: cfg.model || "gpt-4o-mini",
         messages: [
-          {
-            role: "system",
-            content: "You are English Daily AI, a friendly CET-4 English tutor.",
-          },
+          { role: "system", content: "You are English Daily AI, a friendly CET-4 English tutor." },
           ...history.map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content: userMessage },
         ],
@@ -669,7 +1003,7 @@
     return reply;
   }
 
-  const chatHistory = [];
+  const chatHistory = loadChatHistory();
   $("#chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = $("#chat-input").value.trim();
@@ -677,12 +1011,14 @@
     $("#chat-input").value = "";
     appendChatBubble(text, "user");
     chatHistory.push({ role: "user", content: text });
+    saveChatHistory(chatHistory);
     const loading = appendChatBubble("思考中…", "ai");
     try {
       const reply = await callAiApi(text, chatHistory.slice(0, -1));
       loading.remove();
       appendChatBubble(reply, "ai");
       chatHistory.push({ role: "assistant", content: reply });
+      saveChatHistory(chatHistory);
     } catch (err) {
       loading.remove();
       appendChatBubble(err.message || "失败", "error");
