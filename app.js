@@ -975,6 +975,26 @@
     updatePracticeHint();
   });
 
+  // 练习中途返回：保存进度，回到选择界面
+  $("#quiz-exit").addEventListener("click", () => {
+    if (quizAdvanceTimer) {
+      clearTimeout(quizAdvanceTimer);
+      quizAdvanceTimer = null;
+    }
+    saveQuizState();
+    $("#practice-quiz").classList.add("hidden");
+    $("#practice-start").classList.remove("hidden");
+    updatePracticeHint();
+  });
+
+  // 重新洗牌：清除当前组的 split 和 quiz 状态，下次重新出题
+  $("#practice-reshuffle").addEventListener("click", () => {
+    const g = parseInt($("#practice-group-select")?.value ?? getGroup(), 10);
+    localStorage.removeItem(KEYS.practiceSplit + "_" + g);
+    clearQuizState();
+    updatePracticeHint();
+  });
+
   bindGroupSelect("practice-group-select", updatePracticeHint);
   bindGroupSelect("fav-group-select", renderFavorites);
   bindGroupSelect("wrong-group-select", renderWrong);
