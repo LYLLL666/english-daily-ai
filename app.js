@@ -251,6 +251,12 @@
     if (name === "wrong") showWrongList();
     if (name === "memorize") showMemCard();
     if (name === "practice") onEnterPractice();
+    if (name === "chat") {
+      requestAnimationFrame(() => {
+        const mc = $("#chat-messages");
+        if (mc) mc.scrollTop = mc.scrollHeight;
+      });
+    }
   }
 
   $$("[data-go]").forEach((btn) => {
@@ -1090,9 +1096,6 @@
   }
 
   const chatHistory = loadChatHistory();
-  // 进入时滚动到最新消息
-  const msgContainer = $("#chat-messages");
-  if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
 
   function sendChatMessage() {
     const text = $("#chat-input").value.trim();
